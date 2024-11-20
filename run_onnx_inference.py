@@ -81,7 +81,7 @@ device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cp
 
 
 @torch.no_grad()
-def main():
+def main():   
     global args, save_path
     args = parser.parse_args()
 
@@ -136,49 +136,59 @@ def main():
 
 
     for img1_file, img2_file in tqdm(img_pairs):
-        # Preprocess
-        image_1 = imageio.imread(img1_file)
-        image_2 = imageio.imread(img2_file)
-        print(f"Image 1: {image_1.shape}")
-        print(f"Image 2: {image_2.shape}")
+        # # Preprocess
+        # image_1 = imageio.imread(img1_file)
+        # image_2 = imageio.imread(img2_file)
+        # print(f"Image 1: {image_1.shape}")
+        # print(f"Image 2: {image_2.shape}")
 
-        preprocessed_image_1 = input_transform(image_1)
-        preprocessed_image_2 = input_transform(image_2)
-        print(f"Preprocessed Image 1: {preprocessed_image_1.shape}")
-        print(f"Preprocessed Image 2: {preprocessed_image_2.shape}")
+        # preprocessed_image_1 = input_transform(image_1)
+        # preprocessed_image_2 = input_transform(image_2)
+        # print(f"Preprocessed Image 1: {preprocessed_image_1.shape}")
+        # print(f"Preprocessed Image 2: {preprocessed_image_2.shape}")
         
-        input_tensor = torch.cat([preprocessed_image_1, preprocessed_image_2]).unsqueeze(0)
-        print(f"Input tensor {input_tensor.shape}")
+        # input_tensor = torch.cat([preprocessed_image_1, preprocessed_image_2]).unsqueeze(0)
+        # print(f"Input tensor {input_tensor.shape}")
 
-        if args.bidirectional:
-            # feed inverted pair along with normal pair
-            inverted_input_tensor = torch.cat([preprocessed_image_2, preprocessed_image_1]).unsqueeze(0)
-            input_tensor = torch.cat([input_tensor, inverted_input_tensor])
+        # if args.bidirectional:
+        #     # feed inverted pair along with normal pair
+        #     inverted_input_tensor = torch.cat([preprocessed_image_2, preprocessed_image_1]).unsqueeze(0)
+        #     input_tensor = torch.cat([input_tensor, inverted_input_tensor])
 
-        input_tensor = input_tensor.to(device)
-
-        # Process
-        output = model(input_tensor)
-        print(f"Output tensor: {output.shape}")
+        
+        dummy_input = torch.randn(1, 6, 240, 640)
+        dummy_input = dummy_input.to(device)
+        
+        print(f"Dummy input: {dummy_input.shape}")
+        torch.onnx.export(model, 
+                          dummy_input, 
+                          "./FlowNetS.onnx", 
+                          export_params=True,
+                          opset_version=10,
+                          do_constant_folding=True,
+                          input_names=['input'],
+                          output_names=['output'],
+                          dynamic_axes={'input': {0 : 'batch_size'},
+                                        'output': {0 : 'batch_size'}})
 
 
         # Postprocess
-        if args.upsampling is not None:
-            output = F.interpolate(
-                output, size=preprocessed_image_1.size()[-2:], mode=args.upsampling, align_corners=False
-            )
-        for suffix, flow_output in zip(["flow", "inv_flow"], output):
-            filename = save_path / "{}{}".format(img1_file.stem[:-1], suffix)
-            if args.output_value in ["vis", "both"]:
-                rgb_flow = flow2rgb(
-                    args.div_flow * flow_output, max_value=args.max_flow
-                )
-                to_save = (rgb_flow * 255).astype(np.uint8).transpose(1, 2, 0)
-                imageio.imwrite(filename + ".png", to_save)
-            if args.output_value in ["raw", "both"]:
-                # Make the flow map a HxWx2 array as in .flo files
-                to_save = (args.div_flow * flow_output).cpu().numpy().transpose(1, 2, 0)
-                np.save(filename + ".npy", to_save)
+        # if args.upsampling is not None:
+        #     output = F.interpolate(
+        #         output, size=preprocessed_image_1.size()[-2:], mode=args.upsampling, align_corners=False
+        #     )
+        # for suffix, flow_output in zip(["flow", "inv_flow"], output):
+        #     filename = save_path / "{}{}".format(img1_file.stem[:-1], suffix)
+        #     if args.output_value in ["vis", "both"]:
+        #         rgb_flow = flow2rgb(
+        #             args.div_flow * flow_output, max_value=args.max_flow
+        #         )
+        #         to_save = (rgb_flow * 255).astype(np.uint8).transpose(1, 2, 0)
+        #         imageio.imwrite(filename + ".png", to_save)
+        #     if args.output_value in ["raw", "both"]:
+        #         # Make the flow map a HxWx2 array as in .flo files
+        #         to_save = (args.div_flow * flow_output).cpu().numpy().transpose(1, 2, 0)
+        #         np.save(filename + ".npy", to_save)
 
 
 if __name__ == "__main__":
