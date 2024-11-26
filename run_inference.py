@@ -137,8 +137,8 @@ def main():
 
     for img1_file, img2_file in tqdm(img_pairs):
         # Preprocess
-        image_1 = imageio.imread(img1_file)
-        image_2 = imageio.imread(img2_file)
+        image_1 = imageio.imread(img1_file) # RGB image
+        image_2 = imageio.imread(img2_file) # RGB image
         print(f"Image 1: {image_1.shape}")
         print(f"Image 2: {image_2.shape}")
 
